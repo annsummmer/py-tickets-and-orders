@@ -1,3 +1,4 @@
+from datetime import datetime
 from django.contrib.auth.models import AbstractUser
 from django.core.exceptions import ValidationError
 from django.db import models
@@ -66,10 +67,14 @@ class User(AbstractUser):
 
 class Order(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
-    user = models.ForeignKey(to=User, on_delete=models.CASCADE)
+    user = models.ForeignKey(
+        to=User,
+        on_delete=models.CASCADE,
+        related_name="orders"
+    )
 
     def __str__(self) -> str:
-        return str(self.created_at)
+        return f"{datetime.strftime(self.created_at, '%Y-%m-%d %H:%M:%S')}"
 
     class Meta:
         ordering = ["-created_at"]
@@ -89,8 +94,9 @@ class Ticket(models.Model):
     seat = models.IntegerField()
 
     def __str__(self) -> str:
-        return (f"{self.movie_session.movie} "
-                f"{self.movie_session.show_time} "
+        d_str = datetime.strftime
+        return (f"{self.movie_session.movie.title} "
+                f"{d_str(self.movie_session.show_time, '%Y-%m-%d %H:%M:%S')} "
                 f"(row: {self.row}, seat: {self.seat})")
 
     class Meta:
@@ -102,16 +108,17 @@ class Ticket(models.Model):
         ]
 
     def clean(self) -> None:
-        if not 1 <= self.seat <= self.movie_session.cinema_hall.seats_in_row:
+        if not self.seat <= self.movie_session.cinema_hall.seats_in_row:
             raise ValidationError({
                 "seat": f"seat number must be in available range: "
                         f"(1, seats_in_row): "
                         f"(1, {self.movie_session.cinema_hall.seats_in_row})"
             })
-        if not self.row < self.movie_session.cinema_hall.rows:
+        if not self.row <= self.movie_session.cinema_hall.rows:
             raise ValidationError({
                 "row": f"row number must be in available range: "
-                       f"(1, rows): (1, {self.movie_session.cinema_hall.rows})"
+                       f"(1, rows): "
+                       f"(1, {self.movie_session.cinema_hall.rows})"
             })
 
     def save(self, *args, **kwargs) -> None:
